@@ -46,6 +46,10 @@ const BookSchema = new Schema({
         type: Date,
         required: true
     },
+    formattedEndTime: {
+        type: String,
+        required: true
+    },
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",

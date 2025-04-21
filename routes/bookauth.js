@@ -18,12 +18,28 @@ function validateAndFormatTime(timeString) {
   return timeString;
 }
 
-function isTimeWithinAllowedHours(timeString) {
+function isTimeWithinAllowedHours(timeString, service) {
   const [time, meridian] = timeString.split(" ");
   let [hour, minute] = time.split(":").map(Number);
   if (meridian.toUpperCase() === "PM" && hour !== 12) hour += 12;
   if (meridian.toUpperCase() === "AM" && hour === 12) hour = 0;
-  return hour >= 8 && hour < 20;
+
+  // Check if start time is within allowed hours (8 AM to 8 PM)
+  if (hour < 8 || hour >= 20) {
+    return false;
+  }
+
+  // Calculate end time based on service duration
+  const duration = validServices[service].duration;
+  const endTimeMinutes = hour * 60 + minute + duration;
+  const endHour = Math.floor(endTimeMinutes / 60);
+
+  // Check if end time exceeds 8 PM (20:00)
+  if (endHour >= 20) {
+    return false;
+  }
+
+  return true;
 }
 
 function timeStringToDate(dateStr, timeStr) {
@@ -77,8 +93,10 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ message: error.message });
     }
 
-    if (!isTimeWithinAllowedHours(formattedTime)) {
-      return res.status(400).json({ message: "Appointments can only be booked between 8:00 AM and 8:00 PM." });
+    if (!isTimeWithinAllowedHours(formattedTime, service)) {
+      return res.status(400).json({ 
+        message: "Appointments can only be booked between 8:00 AM and 8:00 PM, choose the next day appointment from 8:00 AM and 8:00 PM." 
+      });
     }
 
     const now = new Date();
@@ -89,10 +107,22 @@ router.post("/", async (req, res) => {
     }
 
     const endTime = calculateEndTime(startTime, service);
+    const formattedEndTime = endTime.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+
     const overlapping = await checkOverlappingAppointments(startTime, endTime);
     if (overlapping) {
+      const formattedOverlapTime = overlapping.endTime.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+
       return res.status(400).json({
-        message: `An appointment for ${validServices[overlapping.service]?.name || overlapping.service} is already booked at this time. Please choose a different time after ${overlapping.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`
+        message: `An appointment for ${validServices[overlapping.service]?.name || overlapping.service} is already booked at this time. Please choose a different time after ${formattedOverlapTime}.`
       });
     }
 
@@ -108,7 +138,8 @@ router.post("/", async (req, res) => {
       time: formattedTime,
       service,
       startTime,
-      endTime
+      endTime,
+      formattedEndTime
     });
 
     await newBook.save();
