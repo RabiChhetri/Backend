@@ -9,8 +9,6 @@ const BookSchema = new Schema({
     },
     phoneNumber: {
         type: String,
-        required: true,
-        unique: true,
         trim: true,
         validate: {
             validator: function(v) {
@@ -34,9 +32,9 @@ const BookSchema = new Schema({
         }
     },
     service: {
-        type: String,
-        required: true,
-        enum: ['haircut', 'shaving', 'haircut_shaving', 'hair_color', 'haircut_wash']
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Service",
+        required: true
     },
     startTime: {
         type: Date,
@@ -53,7 +51,16 @@ const BookSchema = new Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
-        required: false
+        required: true
+    },
+    seatNumber: {
+        type: Number,
+        required: true,
+        min: 1
+    },
+    completed: {
+        type: Boolean,
+        default: false
     }
 }, { timestamps: true });
 
