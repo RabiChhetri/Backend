@@ -201,6 +201,45 @@ router.delete("/users/:id", async (req, res) => {
   }
 });
 
+// Route: PUT "/api/auth/users/:id" - Update a user by ID (admin only)
+router.put("/users/:id", async (req, res) => {
+  try {
+    const { name, email, phoneNumber, rewardPoints } = req.body;
+    
+    // Create an object with the fields to be updated
+    const updateFields = {};
+    if (name) updateFields.name = name;
+    if (email) updateFields.email = email.toLowerCase();
+    if (phoneNumber) updateFields.phoneNumber = phoneNumber;
+    if (rewardPoints !== undefined) updateFields.rewardPoints = rewardPoints;
+    
+    // Find and update the user
+    const user = await SignUser.findByIdAndUpdate(
+      req.params.id,
+      { $set: updateFields },
+      { new: true }
+    ).select("-password");
+    
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    res.json({ message: "User updated successfully", user });
+  } catch (error) {
+    console.error("Error updating user:", error);
+    
+    // Handle duplicate key errors
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern)[0];
+      return res.status(400).json({
+        error: `This ${field} is already registered. Please use a different ${field}.`
+      });
+    }
+    
+    res.status(500).json({ error: "Server error", message: error.message });
+  }
+});
+
 // Route: POST "/api/auth/verify-email" - Verify email with OTP
 router.post("/verify-email", async (req, res) => {
     try {

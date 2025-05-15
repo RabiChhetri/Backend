@@ -18,8 +18,17 @@ const ContactSchema = new Schema({
     date: {
         type: Date,
         default: Date.now
+    },
+    replied: {
+        type: Boolean,
+        default: false
+    },
+    replyMessage: {
+        type: String
+    },
+    replyDate: {
+        type: Date
     }
 });
 
-// Remove unique index from email field if it exists
 module.exports = mongoose.model('Contact', ContactSchema);

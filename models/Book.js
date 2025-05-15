@@ -50,7 +50,7 @@ const BookSchema = new Schema({
     },
     userId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
+        ref: "SignUser",
         required: true
     },
     seatNumber: {
@@ -61,6 +61,16 @@ const BookSchema = new Schema({
     completed: {
         type: Boolean,
         default: false
+    },
+    // Add payment screenshot field
+    paymentScreenshot: {
+        type: String,  // Will store the base64 encoded image
+        default: null
+    },
+    paymentStatus: {
+        type: String,
+        enum: ['pending', 'completed'],
+        default: 'pending'
     }
 }, { timestamps: true });
 

@@ -7,6 +7,8 @@ const SignUser = require("../models/SignUser");
 const fetchuser = require('../middleware/fetchuser');
 const Settings = require('../models/Settings');
 const Revenue = require('../models/Revenue');
+const multer = require('multer');
+const path = require('path');
 
 function validateAndFormatTime(timeString) {
   const timeRegex = /^(0?[1-9]|1[0-2]):[0-5][0-9] (AM|PM)$/i;
@@ -287,6 +289,8 @@ router.post('/admin/complete/:id', async (req, res) => {
 
     // Mark as completed
     booking.completed = true;
+    // Update payment status to completed
+    booking.paymentStatus = 'completed';
     await booking.save();
 
     // Add revenue entry
@@ -306,13 +310,13 @@ router.post('/admin/complete/:id', async (req, res) => {
         user.rewardPoints = Math.min((user.rewardPoints || 0) + 100, 500);
         await user.save();
         return res.json({ 
-          message: `Appointment marked as complete. User now has ${user.rewardPoints} points.`,
+          message: `Appointment marked as complete. Payment status updated to completed. User now has ${user.rewardPoints} points.`,
           revenue: booking.service.price
         });
       }
     }
     res.json({ 
-      message: "Appointment marked as complete, but user not found for rewarding.",
+      message: "Appointment marked as complete and payment status updated to completed, but user not found for rewarding.",
       revenue: booking.service.price
     });
   } catch (error) {
@@ -331,6 +335,80 @@ router.post('/admin/reward/claim/:id', async (req, res) => {
     res.json({ message: "Reward claimed and points reset to 0." });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+});
+
+// Add this route to update the booking with payment screenshot
+router.put("/payment/:id", fetchuser, async (req, res) => {
+  try {
+    const { paymentScreenshot } = req.body;
+    const bookingId = req.params.id;
+    
+    // Validate booking exists and belongs to user
+    const booking = await Book.findOne({ _id: bookingId, userId: req.user.id });
+    if (!booking) {
+      return res.status(404).json({ message: "Booking not found or unauthorized" });
+    }
+    
+    // Update booking with payment screenshot
+    booking.paymentScreenshot = paymentScreenshot;
+    booking.paymentStatus = 'completed';
+    await booking.save();
+    
+    res.status(200).json({ message: "Payment screenshot uploaded successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Configure storage
+const storage = multer.diskStorage({
+  destination: function(req, file, cb) {
+    cb(null, 'uploads/');
+  },
+  filename: function(req, file, cb) {
+    cb(null, Date.now() + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ storage: storage });
+
+// Update the route to use multer
+router.put("/payment/:id", fetchuser, upload.single('paymentScreenshot'), async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+    
+    // Validate booking exists and belongs to user
+    const booking = await Book.findOne({ _id: bookingId, userId: req.user.id });
+    if (!booking) {
+      return res.status(404).json({ message: "Booking not found or unauthorized" });
+    }
+    
+    // Update booking with payment screenshot path
+    booking.paymentScreenshot = req.file.path;
+    booking.paymentStatus = 'completed';
+    await booking.save();
+    
+    res.status(200).json({ message: "Payment screenshot uploaded successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Admin: Get full booking details by ID (including payment proof and status)
+router.get("/admin/:id", async (req, res) => {
+  try {
+    console.log("Fetching booking for admin, id:", req.params.id);
+    const booking = await Book.findById(req.params.id).populate('service userId');
+    if (!booking) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+    res.json(booking);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
